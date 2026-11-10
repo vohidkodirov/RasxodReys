@@ -1,0 +1,2646 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Учёт рейса — Касса и Расходы дальнобойщика</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #f6f5f0;
+      color: #2b303a;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    /* Hide scrollbar for tabs */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Touch friendly active feedback */
+    .touch-btn:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+<body class="bg-[#f6f5f0] text-slate-800 min-h-screen flex flex-col pb-20 select-none">
+
+  <!-- TOP HEADER -->
+  <header class="bg-white/95 backdrop-blur border-b border-[#e5e2da] sticky top-0 z-30 px-3 py-2.5 sm:px-6 shadow-sm">
+    <div class="max-w-4xl mx-auto flex flex-col gap-2">
+      <!-- Top Row: Logo, Current Trip Selector Button, and Action Buttons -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-600/20 flex items-center justify-center text-amber-700 flex-shrink-0">
+            <i data-lucide="truck" class="w-5 h-5"></i>
+          </div>
+          
+          <!-- Robust Trip Selector Button that guarantees modal opening on any device -->
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5 mb-0.5">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Текущий рейс:</span>
+              <span id="saveBadge" class="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-300 opacity-0 transition-opacity duration-300">
+                <i data-lucide="check" class="w-2.5 h-2.5"></i> Сохранено
+              </span>
+            </div>
+            <button type="button" onclick="openTripsManagerModal()" class="touch-btn w-full max-w-xs sm:max-w-sm flex items-center justify-between gap-1.5 bg-[#fbfbfa] hover:bg-white border border-[#d8d3c7] hover:border-slate-400 rounded-lg px-2.5 py-1 text-left text-xs sm:text-sm font-bold text-slate-800 shadow-sm transition">
+              <span id="currentTripNameDisplay" class="truncate">Рейс №1 (Загрузка...)</span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500 flex-shrink-0"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Buttons: Arrows, All Trips & Add Trip -->
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <button type="button" onclick="navigateTrip(-1)" title="Предыдущий рейс" class="touch-btn bg-[#f3f1ea] hover:bg-[#eae6db] text-slate-700 p-2 rounded-lg border border-[#d8d3c7] transition">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <button type="button" onclick="navigateTrip(1)" title="Следующий рейс" class="touch-btn bg-[#f3f1ea] hover:bg-[#eae6db] text-slate-700 p-2 rounded-lg border border-[#d8d3c7] transition">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+          <button type="button" onclick="openTripsManagerModal()" class="touch-btn bg-[#f3f1ea] hover:bg-[#eae6db] text-slate-700 px-2.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 border border-[#d8d3c7] transition" title="Открыть журнал всех рейсов">
+            <i data-lucide="folder-git-2" class="w-4 h-4 text-amber-700"></i>
+            <span class="hidden md:inline">Все рейсы</span>
+            <span id="headerTripsCountBadge" class="text-[10px] bg-white text-slate-700 border border-[#d8d3c7] px-1.5 py-0.2 rounded-full font-bold">1</span>
+          </button>
+          <button type="button" onclick="openNewTripModal()" class="touch-btn bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-lg text-xs flex items-center gap-1 transition shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span class="hidden xs:inline">+ Рейс</span>
+          </button>
+          <button type="button" onclick="openTripSettingsModal()" class="touch-btn bg-[#f3f1ea] hover:bg-[#eae6db] text-slate-600 hover:text-slate-900 p-2 rounded-lg border border-[#d8d3c7] transition" title="Настройки и резервная копия">
+            <i data-lucide="settings" class="w-4 h-4 text-slate-500"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- LIVE MULTI-CURRENCY CASH WIDGET (STICKY BAR) -->
+  <section class="bg-white/90 backdrop-blur border-b border-[#e5e2da] sticky top-[53px] z-20 px-3 py-2 shadow-sm">
+    <div class="max-w-4xl mx-auto">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+          <i data-lucide="wallet" class="w-3.5 h-3.5 text-amber-600"></i> Наличность в кошельке
+        </span>
+        <div class="text-right">
+          <span class="text-[11px] text-slate-500">Всего в экв.: </span>
+          <span id="walletTotalUsd" class="text-xs sm:text-sm font-extrabold text-slate-900 font-mono-num">$0.00</span>
+        </div>
+      </div>
+
+      <!-- Currency Badges Horizontal Scroll -->
+      <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" id="walletBadges">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN CONTAINER & TABS -->
+  <main class="max-w-4xl mx-auto w-full px-3 sm:px-6 pt-3 flex-1 flex flex-col gap-3">
+
+    <!-- NAVIGATION TABS -->
+    <nav class="flex rounded-xl bg-white p-1 border border-[#e2ded5] text-xs font-medium gap-1 overflow-x-auto no-scrollbar shadow-sm">
+      <button onclick="switchTab('expenses')" id="tabBtn-expenses" class="tab-btn flex-1 min-w-[76px] py-2 px-2.5 rounded-lg text-center transition flex items-center justify-center gap-1.5 bg-slate-800 text-white font-bold shadow-sm">
+        <i data-lucide="receipt" class="w-4 h-4"></i>
+        <span>Расходы</span>
+      </button>
+      <button onclick="switchTab('exchange')" id="tabBtn-exchange" class="tab-btn flex-1 min-w-[76px] py-2 px-2.5 rounded-lg text-center transition flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-800">
+        <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+        <span>Обменник</span>
+      </button>
+      <button onclick="switchTab('advances')" id="tabBtn-advances" class="tab-btn flex-1 min-w-[76px] py-2 px-2.5 rounded-lg text-center transition flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-800">
+        <i data-lucide="badge-dollar-sign" class="w-4 h-4"></i>
+        <span>Фрахт / Аванс</span>
+      </button>
+      <button onclick="switchTab('wallet')" id="tabBtn-wallet" class="tab-btn flex-1 min-w-[76px] py-2 px-2.5 rounded-lg text-center transition flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-800">
+        <i data-lucide="wallet" class="w-4 h-4"></i>
+        <span>Кошелёк</span>
+      </button>
+      <button onclick="switchTab('daily')" id="tabBtn-daily" class="tab-btn flex-1 min-w-[76px] py-2 px-2.5 rounded-lg text-center transition flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-800">
+        <i data-lucide="calendar" class="w-4 h-4"></i>
+        <span>По дням</span>
+      </button>
+      <button onclick="switchTab('summary')" id="tabBtn-summary" class="tab-btn flex-1 min-w-[76px] py-2 px-2.5 rounded-lg text-center transition flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-800">
+        <i data-lucide="pie-chart" class="w-4 h-4"></i>
+        <span>Итог рейса</span>
+      </button>
+    </nav>
+
+    <!-- ========================================== -->
+    <!-- TAB 1: ROAD EXPENSES (ЖУРНАЛ РАСХОДОВ)      -->
+    <!-- ========================================== -->
+    <div id="tabContent-expenses" class="tab-content flex flex-col gap-3">
+      
+      <!-- Quick Add Expense Form Card -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl p-3.5 sm:p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3 border-b border-[#eeebe3] pb-2">
+          <h2 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-md bg-amber-500/15 text-amber-700 flex items-center justify-center text-xs font-bold">+</span>
+            Внести расход (чек)
+          </h2>
+          <span class="text-[11px] text-slate-500 font-medium">Авторасчёт в $</span>
+        </div>
+
+        <form id="expenseForm" onsubmit="handleSaveExpense(event)" class="space-y-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <!-- Date -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Дата</label>
+              <input type="date" id="expDate" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:border-slate-600 font-mono-num">
+            </div>
+
+            <!-- Category -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Категория</label>
+              <select id="expCategory" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-800 focus:outline-none focus:border-slate-600">
+                <option value="ДТ / Топливо">⛽ ДТ / Топливо</option>
+                <option value="Стоянка / Душ / Питание">🍲 Стоянка / Питание</option>
+                <option value="Платные дороги / Платон">🛣 Платные дороги / Платон</option>
+                <option value="Граница / Документы / Страховка">🛂 Граница / Документы</option>
+                <option value="Ремонт / Шиномонтаж">🔧 Ремонт / Запчасти</option>
+                <option value="Штрафы / Весы">⚖️ Штрафы / Весы</option>
+                <option value="Связь / Интернет">📱 Связь / Интернет</option>
+                <option value="Прочее">📦 Прочее</option>
+              </select>
+            </div>
+
+            <!-- Currency -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Валюта чека</label>
+              <select id="expCurrency" onchange="handleExpenseCurrencyChange()" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-900 font-bold focus:outline-none focus:border-slate-600">
+                <option value="RUB">RUB — Рубль</option>
+                <option value="KGS">KGS — Сом</option>
+                <option value="UZS">UZS — Сум</option>
+                <option value="TJS">TJS — Сомони</option>
+                <option value="USD">USD — Доллар</option>
+              </select>
+            </div>
+
+            <!-- Amount -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Сумма в чеке</label>
+              <input type="number" step="any" min="0.01" id="expAmount" oninput="calculateExpensePreview()" placeholder="0.00" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-2 text-xs sm:text-sm text-slate-900 font-mono-num font-bold focus:outline-none focus:border-slate-600">
+            </div>
+          </div>
+
+          <!-- Secondary Row: Rate, Liters, Note & Photo -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+            <!-- Rate override -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="text-[11px] font-semibold text-slate-600">Курс к 1 $</label>
+                <span id="rateHint" class="text-[10px] text-slate-400">авто</span>
+              </div>
+              <input type="number" step="any" id="expRate" oninput="calculateExpensePreview()" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-mono-num">
+            </div>
+
+            <!-- Calculated USD equivalent preview -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Эквивалент в $</label>
+              <div id="expUsdPreview" class="w-full bg-[#f1efe9] border border-[#dcd7cb] rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-mono-num font-extrabold text-emerald-700 flex items-center">
+                $0.00
+              </div>
+            </div>
+
+            <!-- Liters / Note -->
+            <div class="col-span-2">
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Где / Литры / Заметка</label>
+              <input type="text" id="expNote" placeholder="напр: Лукойл, 350 л солярки" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-600">
+            </div>
+          </div>
+
+          <!-- Photo Attachment Bar -->
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#eeebe3]">
+            <div class="flex items-center gap-2">
+              <label for="expPhotoInput" class="touch-btn cursor-pointer bg-[#f1efe9] hover:bg-[#e7e4dc] text-slate-700 px-2.5 py-1.5 rounded-lg border border-[#d8d3c7] text-xs font-medium flex items-center gap-1.5 transition">
+                <i data-lucide="camera" class="w-4 h-4 text-amber-700"></i>
+                <span id="photoButtonLabel">Прикрепить чек</span>
+              </label>
+              <input type="file" id="expPhotoInput" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelected(event)">
+              
+              <div id="photoThumbContainer" class="hidden items-center gap-1 bg-[#f1efe9] px-2 py-1 rounded-md border border-[#d8d3c7]">
+                <img id="photoThumb" src="" alt="Чек" class="w-6 h-6 object-cover rounded">
+                <span class="text-[10px] text-emerald-700 font-semibold">Фото готово</span>
+                <button type="button" onclick="removeSelectedPhoto()" class="text-rose-600 hover:text-rose-700 ml-1 p-0.5">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="touch-btn w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-bold px-6 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm transition">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Записать расход</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Expense History Table / Cards -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-4 py-3 border-b border-[#eeebe3] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <h3 class="text-xs sm:text-sm font-bold text-slate-800">Чеки рейса</h3>
+            <span id="expensesCountBadge" class="bg-[#f1efe9] text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#d8d3c7]">0</span>
+          </div>
+          <span id="expensesTotalSumBadge" class="text-xs font-mono-num font-bold text-slate-900">$0.00</span>
+        </div>
+
+        <div id="expensesListContainer" class="divide-y divide-[#eeebe3]">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL: EDIT EXPENSE                        -->
+    <!-- ========================================== -->
+    <div id="editExpenseModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-3">
+      <div class="bg-white border border-[#dcd7cb] rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl space-y-3 max-h-[95vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-[#eeebe3] pb-2">
+          <h3 class="font-bold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+            <i data-lucide="edit-3" class="w-4 h-4 text-amber-700"></i>
+            Редактировать расход (чек)
+          </h3>
+          <button onclick="closeEditExpenseModal()" class="text-slate-400 hover:text-slate-700 p-1">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <form id="editExpenseForm" onsubmit="handleUpdateExpense(event)" class="space-y-3">
+          <input type="hidden" id="editExpId">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Дата</label>
+              <input type="date" id="editExpDate" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-2 text-xs sm:text-sm text-slate-800 font-mono-num">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Категория</label>
+              <select id="editExpCategory" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-800">
+                <option value="ДТ / Топливо">⛽ ДТ / Топливо</option>
+                <option value="Стоянка / Душ / Питание">🍲 Стоянка / Питание</option>
+                <option value="Платные дороги / Платон">🛣 Платные дороги / Платон</option>
+                <option value="Граница / Документы / Страховка">🛂 Граница / Документы</option>
+                <option value="Ремонт / Шиномонтаж">🔧 Ремонт / Запчасти</option>
+                <option value="Штрафы / Весы">⚖️ Штрафы / Весы</option>
+                <option value="Связь / Интернет">📱 Связь / Интернет</option>
+                <option value="Прочее">📦 Прочее</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Валюта</label>
+              <select id="editExpCurrency" onchange="handleEditCurrencyChange()" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-900 font-bold">
+                <option value="RUB">RUB — Рубль</option>
+                <option value="KGS">KGS — Сом</option>
+                <option value="UZS">UZS — Сум</option>
+                <option value="TJS">TJS — Сомони</option>
+                <option value="USD">USD — Доллар</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Сумма чека</label>
+              <input type="number" step="any" min="0.01" id="editExpAmount" oninput="calculateEditExpensePreview()" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-2 text-xs sm:text-sm text-slate-900 font-mono-num font-bold">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Курс к 1 USD ($)</label>
+              <input type="number" step="any" id="editExpRate" oninput="calculateEditExpensePreview()" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-1.5 text-xs text-slate-700 font-mono-num">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Эквивалент в $</label>
+              <div id="editExpUsdPreview" class="w-full bg-[#f1efe9] border border-[#dcd7cb] rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-mono-num font-extrabold text-emerald-700 flex items-center">
+                $0.00
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Примечание / Литры / Место</label>
+            <input type="text" id="editExpNote" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-1.5 text-xs text-slate-800">
+          </div>
+
+          <div class="flex items-center justify-between border-t border-[#eeebe3] pt-2">
+            <button type="button" onclick="closeEditExpenseModal()" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800">
+              Отмена
+            </button>
+            <button type="submit" class="touch-btn bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shadow-sm transition">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Сохранить изменения</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 2: ANY-TO-ANY CURRENCY EXCHANGE         -->
+    <!-- ========================================== -->
+    <div id="tabContent-exchange" class="tab-content hidden flex flex-col gap-3">
+      <!-- Exchange Card -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl p-3.5 sm:p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3 border-b border-[#eeebe3] pb-2">
+          <h2 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-md bg-sky-500/15 text-sky-700 flex items-center justify-center text-xs">
+              <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i>
+            </span>
+            Обмен валюты в дороге (из любой в любую)
+          </h2>
+          <span class="text-[11px] text-slate-500 font-medium">Списание и начисление</span>
+        </div>
+
+        <form id="exchangeForm" onsubmit="handleSaveExchange(event)" class="space-y-3">
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <!-- Date -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Дата обмена</label>
+              <input type="date" id="exchDate" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-800 font-mono-num">
+            </div>
+
+            <!-- FROM Currency -->
+            <div>
+              <label class="block text-[11px] font-semibold text-rose-600 mb-1">Отдал валюту</label>
+              <select id="exchFromCur" required onchange="calcExchangeRateLive()" class="w-full bg-[#faf9f6] border border-rose-300 rounded-lg px-2 py-2 text-xs sm:text-sm text-rose-700 font-bold">
+                <option value="USD">USD ($)</option>
+                <option value="RUB">RUB (руб)</option>
+                <option value="KGS">KGS (сом)</option>
+                <option value="UZS">UZS (сум)</option>
+                <option value="TJS">TJS (сомони)</option>
+              </select>
+            </div>
+
+            <!-- FROM Amount -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Сколько отдал</label>
+              <input type="number" step="any" min="0.01" id="exchFromAmt" oninput="calcExchangeRateLive()" placeholder="напр: 150" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-900 font-mono-num font-bold">
+            </div>
+
+            <!-- TO Currency -->
+            <div>
+              <label class="block text-[11px] font-semibold text-emerald-700 mb-1">Получил валюту</label>
+              <select id="exchToCur" required onchange="calcExchangeRateLive()" class="w-full bg-[#faf9f6] border border-emerald-300 rounded-lg px-2 py-2 text-xs sm:text-sm text-emerald-700 font-bold">
+                <option value="RUB">RUB (руб)</option>
+                <option value="KGS" selected>KGS (сом)</option>
+                <option value="UZS">UZS (сум)</option>
+                <option value="TJS">TJS (сомони)</option>
+                <option value="USD">USD ($)</option>
+              </select>
+            </div>
+
+            <!-- TO Amount -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Сколько получил</label>
+              <input type="number" step="any" min="0.01" id="exchToAmt" oninput="calcExchangeRateLive()" placeholder="напр: 13000" required class="w-full bg-[#faf9f6] border border-emerald-300 rounded-lg px-2 py-2 text-xs sm:text-sm text-emerald-800 font-mono-num font-bold">
+            </div>
+          </div>
+
+          <!-- Bottom Row: Rate Preview & Note -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center pt-1">
+            <div class="bg-[#faf9f6] border border-[#d8d3c7] rounded-lg p-2 flex items-center justify-between">
+              <span class="text-[11px] text-slate-500 font-medium">Фактический курс:</span>
+              <span id="exchEffectiveRate" class="text-xs sm:text-sm font-bold font-mono-num text-slate-800">—</span>
+            </div>
+
+            <div>
+              <input type="text" id="exchNote" placeholder="Где менял (напр: Граница / КПП)" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-2 text-xs text-slate-800 placeholder-slate-400">
+            </div>
+
+            <button type="submit" class="touch-btn bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>Зафиксировать обмен</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Exchange History List -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-4 py-3 border-b border-[#eeebe3] flex items-center justify-between">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-800">История валютных операций</h3>
+          <span id="exchangesCountBadge" class="bg-[#f1efe9] text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#d8d3c7]">0</span>
+        </div>
+
+        <div id="exchangeListContainer" class="divide-y divide-[#eeebe3]">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL: EDIT EXCHANGE                       -->
+    <!-- ========================================== -->
+    <div id="editExchangeModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-3">
+      <div class="bg-white border border-[#dcd7cb] rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl space-y-3 max-h-[95vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-[#eeebe3] pb-2">
+          <h3 class="font-bold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+            <i data-lucide="edit-3" class="w-4 h-4 text-sky-700"></i>
+            Редактировать обмен валюты
+          </h3>
+          <button onclick="closeEditExchangeModal()" class="text-slate-400 hover:text-slate-700 p-1">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <form id="editExchangeForm" onsubmit="handleUpdateExchange(event)" class="space-y-3">
+          <input type="hidden" id="editExchId">
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Дата</label>
+              <input type="date" id="editExchDate" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-800 font-mono-num">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-rose-600 mb-1">Отдал</label>
+              <select id="editExchFromCur" required onchange="calcEditExchangeRateLive()" class="w-full bg-[#faf9f6] border border-rose-300 rounded-lg px-2 py-2 text-xs sm:text-sm text-rose-700 font-bold">
+                <option value="USD">USD ($)</option>
+                <option value="RUB">RUB (руб)</option>
+                <option value="KGS">KGS (сом)</option>
+                <option value="UZS">UZS (сум)</option>
+                <option value="TJS">TJS (сомони)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Сумма отдал</label>
+              <input type="number" step="any" min="0.01" id="editExchFromAmt" oninput="calcEditExchangeRateLive()" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-900 font-mono-num font-bold">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-emerald-700 mb-1">Получил</label>
+              <select id="editExchToCur" required onchange="calcEditExchangeRateLive()" class="w-full bg-[#faf9f6] border border-emerald-300 rounded-lg px-2 py-2 text-xs sm:text-sm text-emerald-700 font-bold">
+                <option value="RUB">RUB (руб)</option>
+                <option value="KGS">KGS (сом)</option>
+                <option value="UZS">UZS (сум)</option>
+                <option value="TJS">TJS (сомони)</option>
+                <option value="USD">USD ($)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Сумма получил</label>
+              <input type="number" step="any" min="0.01" id="editExchToAmt" oninput="calcEditExchangeRateLive()" required class="w-full bg-[#faf9f6] border border-emerald-300 rounded-lg px-2 py-2 text-xs sm:text-sm text-emerald-800 font-mono-num font-bold">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center pt-1">
+            <div class="bg-[#faf9f6] border border-[#d8d3c7] rounded-lg p-2 flex items-center justify-between">
+              <span class="text-[11px] text-slate-500 font-medium">Курс:</span>
+              <span id="editExchEffectiveRate" class="text-xs sm:text-sm font-bold font-mono-num text-slate-800">—</span>
+            </div>
+            <div>
+              <input type="text" id="editExchNote" placeholder="Где менял / Заметка" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-2 text-xs text-slate-800">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between border-t border-[#eeebe3] pt-2">
+            <button type="button" onclick="closeEditExchangeModal()" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800">
+              Отмена
+            </button>
+            <button type="submit" class="touch-btn bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shadow-sm transition">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Сохранить изменения</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 3: FREIGHT & ADVANCES (ФРАХТ И АВАНСЫ) -->
+    <!-- ========================================== -->
+    <div id="tabContent-advances" class="tab-content hidden flex flex-col gap-3">
+      <!-- Freight Contract Agreement Card -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex items-center justify-between border-b border-[#eeebe3] pb-3 mb-3">
+          <h2 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+            <span class="w-6 h-6 rounded-md bg-amber-500/15 text-amber-700 flex items-center justify-center text-xs">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+            </span>
+            Ставка за перевозку (Фрахт по договору)
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Валюта договора</label>
+            <select id="freightCurrency" onchange="updateFreightSetup()" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-2 text-xs sm:text-sm font-bold text-slate-800">
+              <option value="USD">USD ($)</option>
+              <option value="RUB">RUB (руб)</option>
+              <option value="KGS">KGS (сом)</option>
+              <option value="UZS">UZS (сум)</option>
+              <option value="TJS">TJS (сомони)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Договоренная ставка</label>
+            <input type="number" step="any" id="freightAgreedAmount" oninput="updateFreightSetup()" placeholder="4500" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-900 font-mono-num font-bold">
+          </div>
+
+          <div class="bg-[#faf9f6] p-2.5 rounded-lg border border-[#d8d3c7] flex flex-col justify-center">
+            <span class="text-[10px] text-slate-500 uppercase font-semibold">Ставка в USD ($):</span>
+            <span id="freightAgreedUsd" class="text-sm sm:text-base font-extrabold text-slate-900 font-mono-num">$0.00</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Client Debt & Payments KPI -->
+      <section class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div class="bg-white border border-[#e4e0d7] rounded-xl p-3 shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Всего ставка:</span>
+          <span id="kpiFreightTotal" class="text-xs sm:text-sm font-mono-num font-bold text-slate-900">$0.00</span>
+        </div>
+        <div class="bg-white border border-[#e4e0d7] rounded-xl p-3 shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Получено авансами:</span>
+          <span id="kpiFreightReceived" class="text-xs sm:text-sm font-mono-num font-bold text-emerald-700">$0.00</span>
+        </div>
+        <div class="bg-white border border-[#e4e0d7] rounded-xl p-3 col-span-2 shadow-sm">
+          <span class="text-[10px] uppercase font-bold text-slate-500 block mb-0.5">Остаток долга заказчика:</span>
+          <div class="flex items-center justify-between">
+            <span id="kpiFreightDebtUsd" class="text-sm sm:text-base font-mono-num font-extrabold text-rose-600">$0.00</span>
+            <span id="kpiFreightDebtStatus" class="text-[10px] font-bold px-2 py-0.5 rounded border">В процессе</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Client Debt in Local Currencies -->
+      <section class="bg-white/80 border border-[#e4e0d7] rounded-xl p-3 text-xs shadow-sm">
+        <span class="text-[11px] font-bold text-slate-600 block mb-2">Остаток к получению в других валютах (по курсу):</span>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center" id="debtInCurrenciesList">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+
+      <!-- Add Advance / Payment Form -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl p-3.5 sm:p-4 shadow-sm">
+        <h3 class="text-xs sm:text-sm font-bold text-slate-800 mb-2.5 flex items-center gap-1.5">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-700"></i>
+          Внести полученный аванс или доплату
+        </h3>
+
+        <form id="advanceForm" onsubmit="handleSaveAdvance(event)" class="space-y-2.5">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Дата</label>
+              <input type="date" id="advDate" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs text-slate-800 font-mono-num">
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Тип платежа</label>
+              <select id="advType" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs text-slate-800">
+                <option value="Аванс перед выездом">Аванс перед выездом</option>
+                <option value="Доплата на топливо в пути">Доплата в пути</option>
+                <option value="Оплата на выгрузке">Оплата на выгрузке</option>
+                <option value="Полный расчет">Полный расчет</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Валюта</label>
+              <select id="advCurrency" onchange="calcAdvancePreview()" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs text-slate-900 font-bold">
+                <option value="USD">USD ($)</option>
+                <option value="RUB">RUB (руб)</option>
+                <option value="KGS">KGS (сом)</option>
+                <option value="UZS">UZS (сум)</option>
+                <option value="TJS">TJS (сомони)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Сумма</label>
+              <input type="number" step="any" min="0.01" id="advAmount" oninput="calcAdvancePreview()" placeholder="1500" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs text-slate-900 font-mono-num font-bold">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between gap-2 pt-1">
+            <span class="text-xs text-slate-600">
+              Эквивалент: <strong id="advUsdPreview" class="text-emerald-700 font-mono-num">$0.00</strong>
+            </span>
+            <button type="submit" class="touch-btn bg-slate-800 hover:bg-slate-900 text-white font-bold px-4 py-2 rounded-xl text-xs sm:text-sm flex items-center gap-1.5 shadow-sm transition">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Зачислить в кассу</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Advances History List -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-4 py-3 border-b border-[#eeebe3] flex items-center justify-between">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-800">Поступления от заказчика</h3>
+          <span id="advancesCountBadge" class="bg-[#f1efe9] text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#d8d3c7]">0</span>
+        </div>
+        <div id="advancesListContainer" class="divide-y divide-[#eeebe3]">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB: SEPARATE WALLET TAB (ОСТАТОК В КОШЕЛЬКЕ) -->
+    <!-- ========================================== -->
+    <div id="tabContent-wallet" class="tab-content hidden flex flex-col gap-3">
+      <!-- Currency Cards Grid -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="walletDetailCards">
+        <!-- Rendered via JS -->
+      </section>
+
+      <!-- Wallet Cashflow Table -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl p-4 shadow-sm">
+        <h3 class="text-xs sm:text-sm font-bold text-slate-800 mb-3 border-b border-[#eeebe3] pb-2">
+          Движение денег по валютам (Приход / Расход / На руках)
+        </h3>
+        <div class="overflow-x-auto no-scrollbar">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="text-slate-500 border-b border-[#eeebe3]">
+                <th class="pb-2 font-semibold">Валюта</th>
+                <th class="pb-2 font-semibold text-emerald-700">Поступило</th>
+                <th class="pb-2 font-semibold text-rose-600">Потрачено</th>
+                <th class="pb-2 font-semibold font-bold text-slate-800">Остаток</th>
+                <th class="pb-2 font-semibold text-right">В $</th>
+              </tr>
+            </thead>
+            <tbody id="walletCashflowRows" class="divide-y divide-[#eeebe3] font-mono-num">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 4: DAILY BREAKDOWN (ПО ДНЯМ)           -->
+    <!-- ========================================== -->
+    <div id="tabContent-daily" class="tab-content hidden flex flex-col gap-3">
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl p-4 shadow-sm">
+        <div class="flex items-center justify-between mb-3 border-b border-[#eeebe3] pb-2">
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">Ежедневный свод расходов</h2>
+            <p class="text-xs text-slate-500">Автоматическая группировка по датам и валютам</p>
+          </div>
+          <span id="dailyTotalBadge" class="text-xs font-mono-num font-bold text-slate-900">$0.00</span>
+        </div>
+
+        <div id="dailyContainer" class="space-y-2.5">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 5: FINANCIAL SUMMARY (ИТОГ РЕЙСА)       -->
+    <!-- ========================================== -->
+    <div id="tabContent-summary" class="tab-content hidden flex flex-col gap-3">
+      <!-- Key Trip Indicators (Without Net Profit block) -->
+      <section class="grid grid-cols-2 gap-2.5">
+        <div class="bg-white border border-[#e4e0d7] rounded-xl p-3 shadow-sm">
+          <span class="text-[10px] text-slate-500 uppercase font-bold block mb-1">Ставка за рейс ($)</span>
+          <span id="sumTotalAgreed" class="text-sm sm:text-base font-mono-num font-bold text-slate-900">$0.00</span>
+        </div>
+        <div class="bg-white border border-[#e4e0d7] rounded-xl p-3 shadow-sm">
+          <span class="text-[10px] text-slate-500 uppercase font-bold block mb-1">Все расходы в рейсе</span>
+          <span id="sumTotalSpent" class="text-sm sm:text-base font-mono-num font-bold text-rose-600">$0.00</span>
+        </div>
+      </section>
+
+      <!-- Expenses by Currencies Table -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl p-4 shadow-sm">
+        <h3 class="text-xs sm:text-sm font-bold text-slate-800 mb-3 border-b border-[#eeebe3] pb-2">
+          Итого расходов по каждой валюте
+        </h3>
+        <div class="overflow-x-auto no-scrollbar">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="text-slate-500 border-b border-[#eeebe3]">
+                <th class="pb-2 font-semibold">Валюта</th>
+                <th class="pb-2 font-semibold">Сумма в валюте</th>
+                <th class="pb-2 font-semibold">Курс</th>
+                <th class="pb-2 font-semibold text-right">В долларах ($)</th>
+              </tr>
+            </thead>
+            <tbody id="summaryCurrencyRows" class="divide-y divide-[#eeebe3] font-mono-num">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Category Breakdown -->
+      <section class="bg-white border border-[#e4e0d7] rounded-2xl p-4 shadow-sm">
+        <h3 class="text-xs sm:text-sm font-bold text-slate-800 mb-3 border-b border-[#eeebe3] pb-2">
+          Расходы по статьям
+        </h3>
+        <div id="categoryBreakdownList" class="space-y-2">
+          <!-- Rendered via JS -->
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL: EXCHANGE RATES CONFIG               -->
+  <!-- ========================================== -->
+  <div id="ratesModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-white border border-[#dcd7cb] rounded-2xl max-w-sm w-full p-4 sm:p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-[#eeebe3] pb-2">
+        <h3 class="font-bold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+          <i data-lucide="sliders" class="w-4 h-4 text-amber-700"></i>
+          Базовые курсы к 1 USD ($)
+        </h3>
+        <button onclick="closeRatesModal()" class="text-slate-400 hover:text-slate-700 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <p class="text-[11px] text-slate-500">
+        Укажите текущие курсы обмена валют. Они подставляются автоматически при вводе чеков и пересчёте кассы.
+      </p>
+
+      <div class="space-y-2.5">
+        <div>
+          <label class="block text-xs text-slate-700 font-semibold mb-1">RUB (Российский рубль к $):</label>
+          <input type="number" step="any" id="cfgRateRUB" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-1.5 text-xs sm:text-sm font-mono-num font-bold text-slate-900">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-700 font-semibold mb-1">KGS (Кыргызский сом к $):</label>
+          <input type="number" step="any" id="cfgRateKGS" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-1.5 text-xs sm:text-sm font-mono-num font-bold text-slate-900">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-700 font-semibold mb-1">UZS (Узбекский сум к $):</label>
+          <input type="number" step="any" id="cfgRateUZS" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-1.5 text-xs sm:text-sm font-mono-num font-bold text-slate-900">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-700 font-semibold mb-1">TJS (Таджикский сомони к $):</label>
+          <input type="number" step="any" id="cfgRateTJS" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-1.5 text-xs sm:text-sm font-mono-num font-bold text-slate-900">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#eeebe3]">
+        <button onclick="closeRatesModal()" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800">Отмена</button>
+        <button onclick="saveRatesFromModal()" class="touch-btn bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Сохранить курсы</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: TRIP SETTINGS, BACKUP & EXPORT      -->
+  <!-- ========================================== -->
+  <div id="tripSettingsModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-white border border-[#dcd7cb] rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-[#eeebe3] pb-2">
+        <h3 class="font-bold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+          <i data-lucide="settings" class="w-4 h-4 text-slate-500"></i>
+          Параметры рейса и Данные
+        </h3>
+        <button onclick="closeTripSettingsModal()" class="text-slate-400 hover:text-slate-700 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Trip Info -->
+      <div class="space-y-2">
+        <div>
+          <label class="block text-xs text-slate-600 font-medium mb-1">Маршрут / Название рейса</label>
+          <input type="text" id="cfgTripTitle" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-1.5 text-xs text-slate-800">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-600 font-medium mb-1">Дата старта</label>
+          <input type="date" id="cfgTripStartDate" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-1.5 text-xs text-slate-800 font-mono-num">
+        </div>
+        <button onclick="saveTripMetaFromModal()" class="touch-btn w-full bg-[#f1efe9] hover:bg-[#e7e4dc] border border-[#d8d3c7] py-2 rounded-lg text-xs font-semibold text-slate-800">
+          Сохранить параметры рейса
+        </button>
+      </div>
+
+      <!-- Export / Import / Reset -->
+      <div class="border-t border-[#eeebe3] pt-3 space-y-2">
+        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Резервная копия и Экспорт</h4>
+        
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="exportToCsv()" class="touch-btn bg-[#faf9f6] hover:bg-[#f1efe9] border border-[#d8d3c7] py-2 px-3 rounded-lg text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-700"></i>
+            <span>Экспорт в Excel (CSV)</span>
+          </button>
+          <button onclick="exportToJsonBackup()" class="touch-btn bg-[#faf9f6] hover:bg-[#f1efe9] border border-[#d8d3c7] py-2 px-3 rounded-lg text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5">
+            <i data-lucide="download" class="w-4 h-4 text-sky-700"></i>
+            <span>Скачать копию (JSON)</span>
+          </button>
+        </div>
+
+        <div class="pt-1">
+          <label class="touch-btn cursor-pointer bg-[#faf9f6] hover:bg-[#f1efe9] border border-[#d8d3c7] w-full py-2 px-3 rounded-lg text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5 block text-center">
+            <i data-lucide="upload" class="w-4 h-4 text-amber-700"></i>
+            <span>Восстановить данные из JSON</span>
+            <input type="file" accept=".json" onchange="importFromJsonFile(event)" class="hidden">
+          </label>
+        </div>
+
+        <div class="pt-3 border-t border-[#eeebe3]">
+          <button onclick="openNewTripModal(); closeTripSettingsModal();" class="touch-btn w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>Добавить новый рейс (без удаления старого)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: CREATE NEW TRIP (ДОБАВИТЬ РЕЙС)      -->
+  <!-- ========================================== -->
+  <div id="newTripModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-white border border-[#dcd7cb] rounded-2xl max-w-md w-full p-4 sm:p-5 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-[#eeebe3] pb-2">
+        <h3 class="font-bold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-700"></i>
+          Создать новый рейс
+        </h3>
+        <button onclick="closeNewTripModal()" class="text-slate-400 hover:text-slate-700 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="newTripForm" onsubmit="handleCreateNewTrip(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-700 font-semibold mb-1">Маршрут / Название рейса</label>
+          <input type="text" id="newTripTitle" required placeholder="напр: Бишкек — Самара — Ташкент" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-600">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs text-slate-700 font-semibold mb-1">Дата старта</label>
+            <input type="date" id="newTripStartDate" required class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2.5 py-2 text-xs sm:text-sm text-slate-900 font-mono-num">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-700 font-semibold mb-1">Валюта фрахта</label>
+            <select id="newTripFreightCurrency" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-900 font-bold">
+              <option value="USD">USD ($)</option>
+              <option value="RUB">RUB (руб)</option>
+              <option value="KGS">KGS (сом)</option>
+              <option value="UZS">UZS (сум)</option>
+              <option value="TJS">TJS (сомони)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-700 font-semibold mb-1">Ставка за перевозку (фрахт)</label>
+          <input type="number" step="any" min="0" id="newTripFreightAmount" placeholder="4500" class="w-full bg-[#faf9f6] border border-[#d8d3c7] rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-900 font-mono-num font-bold">
+        </div>
+
+        <div class="bg-[#faf9f6] p-3 rounded-xl border border-[#d8d3c7] text-[11px] text-slate-600 flex items-start gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-emerald-700 flex-shrink-0 mt-0.5"></i>
+          <span>Предыдущий рейс сохранится в архиве рейсов со всеми чеками и расчётами. Вы сможете переключиться обратно в любой момент.</span>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-[#eeebe3]">
+          <button type="button" onclick="closeNewTripModal()" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800">
+            Отмена
+          </button>
+          <button type="submit" class="touch-btn bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Начать рейс</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: TRIPS MANAGER / LIST (СПИСОК РЕЙСОВ) -->
+  <!-- ========================================== -->
+  <div id="tripsManagerModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-3">
+    <div class="bg-white border border-[#dcd7cb] rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-[#eeebe3] pb-2">
+        <h3 class="font-bold text-sm sm:text-base text-slate-800 flex items-center gap-2">
+          <i data-lucide="folder-git-2" class="w-5 h-5 text-amber-700"></i>
+          Журнал всех рейсов
+        </h3>
+        <button onclick="closeTripsManagerModal()" class="text-slate-400 hover:text-slate-700 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-slate-600">Выберите рейс для просмотра и работы:</span>
+        <button onclick="closeTripsManagerModal(); openNewTripModal();" class="touch-btn text-xs bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Добавить новый
+        </button>
+      </div>
+
+      <div id="tripsListContainer" class="space-y-2">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: PHOTO RECEIPT VIEWER                -->
+  <!-- ========================================== -->
+  <div id="photoViewerModal" class="hidden fixed inset-0 z-50 bg-black/95 flex flex-col p-3">
+    <div class="flex items-center justify-between pb-2">
+      <span id="photoViewerTitle" class="text-xs text-slate-300 font-mono-num truncate">Фото чека</span>
+      <button onclick="closePhotoViewer()" class="text-slate-300 hover:text-white p-2">
+        <i data-lucide="x" class="w-6 h-6"></i>
+      </button>
+    </div>
+    <div class="flex-1 flex items-center justify-center overflow-auto">
+      <img id="photoViewerImg" src="" alt="Чек крупно" class="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl">
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC & STATE ENGINE -->
+  <script>
+    /* ==========================================================================
+       1. INITIAL STATE & CONSTANTS
+       ========================================================================== */
+    const STORAGE_KEY = 'TRUCKER_EXPENSE_APP_DATA_V3';
+
+    // Safe persistent storage wrapper for Google Sites iFrames
+    const StorageAdapter = {
+      isLocalStorageAvailable: function() {
+        try {
+          const testKey = '__test_ls__';
+          localStorage.setItem(testKey, '1');
+          localStorage.removeItem(testKey);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      },
+      getItem: function(key) {
+        // 1. Try LocalStorage
+        try {
+          const val = localStorage.getItem(key);
+          if (val) return val;
+        } catch (e) {}
+
+        // 2. Try SessionStorage fallback
+        try {
+          const sVal = sessionStorage.getItem(key);
+          if (sVal) return sVal;
+        } catch (e) {}
+
+        // 3. Try Cookie fallback (crucial for Google Sites iframe)
+        try {
+          const nameEQ = key + "=";
+          const ca = document.cookie.split(';');
+          for (let i = 0; i < ca.length; i++) {
+            let c = ca[i].trim();
+            if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length));
+          }
+        } catch (e) {}
+
+        return null;
+      },
+      setItem: function(key, value) {
+        // 1. Save to LocalStorage
+        try {
+          localStorage.setItem(key, value);
+        } catch (e) {}
+
+        // 2. Save to SessionStorage
+        try {
+          sessionStorage.setItem(key, value);
+        } catch (e) {}
+
+        // 3. Save to Cookie
+        try {
+          if (value.length < 3800) {
+            const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+            document.cookie = `${key}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+          }
+        } catch (e) {}
+
+        // 4. Save to IndexedDB (asynchronous background persistence)
+        saveToIndexedDB(key, value);
+      }
+    };
+
+    // IndexedDB backup engine for sandboxed Google Sites
+    function initIndexedDB(callback) {
+      if (!window.indexedDB) return;
+      try {
+        const req = indexedDB.open('TruckerExpenseDB', 1);
+        req.onupgradeneeded = function(e) {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('tripsData')) {
+            db.createObjectStore('tripsData', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = function(e) {
+          if (callback) callback(e.target.result);
+        };
+        req.onerror = function() {
+          console.warn('IndexedDB unavailable or blocked in iframe sandbox');
+        };
+      } catch (err) {
+        console.warn('IndexedDB initialization failed:', err);
+      }
+    }
+
+    function saveToIndexedDB(key, val) {
+      initIndexedDB(function(db) {
+        try {
+          const tx = db.transaction('tripsData', 'readwrite');
+          const store = tx.objectStore('tripsData');
+          store.put({ id: key, payload: val, updatedAt: Date.now() });
+        } catch (err) {}
+      });
+    }
+
+    const DEFAULT_RATES = {
+      USD: 1.0,
+      RUB: 98.0,
+      KGS: 87.5,
+      UZS: 12850.0,
+      TJS: 10.9
+    };
+
+    const CURRENCY_SYMBOLS = {
+      USD: '$',
+      RUB: '₽',
+      KGS: 'сом',
+      UZS: 'сум',
+      TJS: 'смн'
+    };
+
+    // Helper to safely parse numbers with comma or space replacement
+    function cleanParseFloat(val, fallback = 0) {
+      if (val === null || val === undefined || val === '') return fallback;
+      const str = String(val).replace(/\s+/g, '').replace(',', '.');
+      const num = parseFloat(str);
+      return isNaN(num) ? fallback : num;
+    }
+
+    // Helper to compute effective exchange rates
+    function getEffectiveRate(cur, customTrip = null) {
+      if (cur === 'USD') return 1.0;
+      const targetTrip = customTrip || appState;
+      const rate = targetTrip?.rates?.[cur] || DEFAULT_RATES[cur];
+      return (rate && Number(rate) > 0) ? Number(rate) : (DEFAULT_RATES[cur] || 1.0);
+    }
+
+    // Sample default starting single-trip object
+    function createInitialTripObject() {
+      return {
+        id: 'trip-default-1',
+        title: 'Рейс №1: Ош — Москва — Ош',
+        startDate: '2026-11-10',
+        freightCurrency: 'USD',
+        freightAgreedAmount: 4500.0,
+        rates: { ...DEFAULT_RATES },
+        trip: {
+          title: 'Рейс №1: Ош — Москва — Ош',
+          startDate: '2026-11-10',
+          freightCurrency: 'USD',
+          freightAgreedAmount: 4500.0
+        },
+        advances: [
+          {
+            id: 'adv-1',
+            date: '2026-11-10',
+            type: 'Аванс перед выездом',
+            currency: 'USD',
+            amount: 1500.0,
+            rate: 1.0,
+            usdAmount: 1500.0
+          }
+        ],
+        exchanges: [
+          {
+            id: 'exch-1',
+            date: '2026-11-10',
+            fromCur: 'USD',
+            fromAmt: 300.0,
+            toCur: 'RUB',
+            toAmt: 29400.0,
+            rate: 98.0,
+            note: 'КПП / Граница'
+          },
+          {
+            id: 'exch-2',
+            date: '2026-11-10',
+            fromCur: 'RUB',
+            fromAmt: 5000.0,
+            toCur: 'UZS',
+            toAmt: 655000.0,
+            rate: 131.0,
+            note: 'Прямой обмен на границе'
+          }
+        ],
+        expenses: [
+          {
+            id: 'exp-1',
+            date: '2026-11-10',
+            category: 'ДТ / Топливо',
+            currency: 'RUB',
+            amount: 18500.0,
+            rate: 98.0,
+            usdAmount: 188.78,
+            note: 'АЗС Лукойл, 270 л солярки',
+            photo: null
+          },
+          {
+            id: 'exp-2',
+            date: '2026-11-10',
+            category: 'Платные дороги / Платон',
+            currency: 'RUB',
+            amount: 3200.0,
+            rate: 98.0,
+            usdAmount: 32.65,
+            note: 'Оплата участка трассы',
+            photo: null
+          },
+          {
+            id: 'exp-3',
+            date: '2026-11-10',
+            category: 'Стоянка / Душ / Питание',
+            currency: 'RUB',
+            amount: 1400.0,
+            rate: 98.0,
+            usdAmount: 14.29,
+            note: 'ТИР, душ, обед',
+            photo: null
+          }
+        ]
+      };
+    }
+
+    // App state now holds multiple trips and active trip ID
+    let rootStore = {
+      activeTripId: null,
+      trips: []
+    };
+
+    // Active trip proxy convenience
+    let appState = null;
+    let currentPhotoBase64 = null;
+
+    /* ==========================================================================
+       2. PERSISTENCE & INITIALIZATION
+       ========================================================================== */
+    function loadState(onComplete) {
+      let loaded = false;
+      try {
+        const saved = StorageAdapter.getItem(STORAGE_KEY) || StorageAdapter.getItem('TRUCKER_EXPENSE_APP_DATA_V2');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed.trips) && parsed.trips.length > 0) {
+            rootStore = {
+              activeTripId: parsed.activeTripId || parsed.trips[0].id,
+              trips: parsed.trips
+            };
+            loaded = true;
+          }
+        }
+      } catch (err) {
+        console.error('Ошибка чтения хранилища:', err);
+      }
+
+      // Check IndexedDB first before overwriting with defaults
+      if (window.indexedDB) {
+        initIndexedDB(function(db) {
+          try {
+            const tx = db.transaction('tripsData', 'readonly');
+            const store = tx.objectStore('tripsData');
+            const getReq = store.get(STORAGE_KEY);
+            getReq.onsuccess = function() {
+              if (getReq.result && getReq.result.payload) {
+                try {
+                  const parsedIdb = JSON.parse(getReq.result.payload);
+                  if (parsedIdb && Array.isArray(parsedIdb.trips) && parsedIdb.trips.length > 0) {
+                    rootStore = parsedIdb;
+                    loaded = true;
+                  }
+                } catch(e) {}
+              }
+              finishLoading();
+            };
+            getReq.onerror = function() { finishLoading(); };
+          } catch (e) {
+            finishLoading();
+          }
+        });
+      } else {
+        finishLoading();
+      }
+
+      function finishLoading() {
+        if (!loaded || !rootStore.trips || rootStore.trips.length === 0) {
+          const defaultTrip = createInitialTripObject();
+          rootStore = {
+            activeTripId: defaultTrip.id,
+            trips: [defaultTrip]
+          };
+          try {
+            StorageAdapter.setItem(STORAGE_KEY, JSON.stringify(rootStore));
+          } catch(e) {}
+        }
+
+        syncActiveTripPointer();
+        if (onComplete) onComplete();
+      }
+    }
+
+    function syncActiveTripPointer() {
+      if (!rootStore.trips || rootStore.trips.length === 0) {
+        const defaultTrip = createInitialTripObject();
+        rootStore.trips = [defaultTrip];
+        rootStore.activeTripId = defaultTrip.id;
+      }
+
+      let active = rootStore.trips.find(t => t.id === rootStore.activeTripId);
+      if (!active) {
+        active = rootStore.trips[0];
+        rootStore.activeTripId = active.id;
+      }
+      appState = active;
+
+      if (!appState.rates) {
+        appState.rates = { ...DEFAULT_RATES };
+      } else {
+        Object.keys(DEFAULT_RATES).forEach(cur => {
+          if (!appState.rates[cur] || Number(appState.rates[cur]) <= 0) {
+            appState.rates[cur] = DEFAULT_RATES[cur];
+          }
+        });
+      }
+
+      if (!Array.isArray(appState.expenses)) appState.expenses = [];
+      if (!Array.isArray(appState.exchanges)) appState.exchanges = [];
+      if (!Array.isArray(appState.advances)) appState.advances = [];
+
+      const existingAmount = cleanParseFloat(
+        appState.freightAgreedAmount !== undefined 
+          ? appState.freightAgreedAmount 
+          : (appState.trip?.freightAgreedAmount !== undefined ? appState.trip.freightAgreedAmount : 0)
+      );
+      const existingCurrency = appState.freightCurrency || appState.trip?.freightCurrency || 'USD';
+      const existingTitle = appState.title || appState.trip?.title || 'Текущий рейс';
+      const existingStartDate = appState.startDate || appState.trip?.startDate || new Date().toISOString().split('T')[0];
+
+      appState.freightAgreedAmount = existingAmount;
+      appState.freightCurrency = existingCurrency;
+      appState.title = existingTitle;
+      appState.startDate = existingStartDate;
+
+      appState.trip = {
+        title: existingTitle,
+        startDate: existingStartDate,
+        freightCurrency: existingCurrency,
+        freightAgreedAmount: existingAmount
+      };
+    }
+
+    function saveState() {
+      try {
+        if (!rootStore || !Array.isArray(rootStore.trips)) {
+          rootStore = { activeTripId: appState?.id, trips: appState ? [appState] : [] };
+        }
+
+        if (appState) {
+          const idx = rootStore.trips.findIndex(t => t.id === appState.id);
+          if (idx !== -1) {
+            rootStore.trips[idx] = appState;
+          } else {
+            rootStore.trips.unshift(appState);
+          }
+          rootStore.activeTripId = appState.id;
+        }
+
+        StorageAdapter.setItem(STORAGE_KEY, JSON.stringify(rootStore));
+        flashSaveBadge();
+      } catch (err) {
+        console.error('Ошибка записи:', err);
+      }
+    }
+
+    function flashSaveBadge() {
+      const badge = document.getElementById('saveBadge');
+      if (badge) {
+        badge.classList.remove('opacity-0');
+        badge.classList.add('opacity-100');
+        setTimeout(() => {
+          badge.classList.remove('opacity-100');
+        }, 1200);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadState(() => {
+        // Init form defaults
+        const todayDate = appState?.trip?.startDate || new Date().toISOString().split('T')[0];
+        document.getElementById('expDate').value = todayDate;
+        document.getElementById('exchDate').value = todayDate;
+        document.getElementById('advDate').value = todayDate;
+        document.getElementById('newTripStartDate').value = new Date().toISOString().split('T')[0];
+
+        // Init rates in form
+        handleExpenseCurrencyChange();
+        calcExchangeRateLive();
+        calcAdvancePreview();
+
+        // Render all screens
+        renderAll();
+
+        // Initialize icons
+        lucide.createIcons();
+      });
+    });
+
+    /* ==========================================================================
+       TRIP MANAGEMENT (ПЕРЕХОД МЕЖДУ РЕЙСАМИ, СЕЛЕКТОР, АРХИВ)
+       ========================================================================== */
+    function handleQuickTripSwitch(tripId) {
+      if (!tripId || tripId === rootStore.activeTripId) return;
+      selectTrip(tripId);
+    }
+
+    function navigateTrip(direction) {
+      if (!rootStore.trips || rootStore.trips.length <= 1) return;
+      const currentIndex = rootStore.trips.findIndex(t => t.id === rootStore.activeTripId);
+      if (currentIndex === -1) return;
+
+      let nextIndex = currentIndex + direction;
+      if (nextIndex < 0) nextIndex = rootStore.trips.length - 1;
+      if (nextIndex >= rootStore.trips.length) nextIndex = 0;
+
+      selectTrip(rootStore.trips[nextIndex].id);
+    }
+
+    function openNewTripModal() {
+      document.getElementById('newTripTitle').value = '';
+      document.getElementById('newTripStartDate').value = new Date().toISOString().split('T')[0];
+      document.getElementById('newTripFreightAmount').value = '';
+      document.getElementById('newTripModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeNewTripModal() {
+      document.getElementById('newTripModal').classList.add('hidden');
+    }
+
+    function handleCreateNewTrip(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const title = document.getElementById('newTripTitle').value.trim() || `Рейс №${rootStore.trips.length + 1}`;
+      const startDate = document.getElementById('newTripStartDate').value || new Date().toISOString().split('T')[0];
+      const freightCurrency = document.getElementById('newTripFreightCurrency').value || 'USD';
+      const rawAmt = document.getElementById('newTripFreightAmount').value;
+      const freightAgreedAmount = cleanParseFloat(rawAmt, 0);
+
+      const rates = appState?.rates ? { ...appState.rates } : { ...DEFAULT_RATES };
+
+      const newTrip = {
+        id: 'trip-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        title: title,
+        startDate: startDate,
+        freightCurrency: freightCurrency,
+        freightAgreedAmount: freightAgreedAmount,
+        rates: rates,
+        trip: {
+          title: title,
+          startDate: startDate,
+          freightCurrency: freightCurrency,
+          freightAgreedAmount: freightAgreedAmount
+        },
+        advances: [],
+        exchanges: [],
+        expenses: []
+      };
+
+      // Добавляем рейс в массив и сразу делаем его активным
+      rootStore.trips.unshift(newTrip);
+      rootStore.activeTripId = newTrip.id;
+      appState = newTrip;
+
+      // Принудительно сохраняем состояние через адаптер хранилища прямо сейчас
+      saveState();
+
+      closeNewTripModal();
+
+      document.getElementById('expDate').value = startDate;
+      document.getElementById('exchDate').value = startDate;
+      document.getElementById('advDate').value = startDate;
+
+      document.getElementById('freightCurrency').value = freightCurrency;
+      document.getElementById('freightAgreedAmount').value = freightAgreedAmount > 0 ? freightAgreedAmount : '';
+
+      handleExpenseCurrencyChange();
+      renderAll();
+      switchTab('advances');
+      return false;
+    }
+
+    function openTripsManagerModal() {
+      renderTripsList();
+      document.getElementById('tripsManagerModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeTripsManagerModal() {
+      document.getElementById('tripsManagerModal').classList.add('hidden');
+    }
+
+    function selectTrip(tripId) {
+      rootStore.activeTripId = tripId;
+      syncActiveTripPointer();
+      saveState();
+      closeTripsManagerModal();
+      renderAll();
+    }
+
+    function deleteTrip(tripId, event) {
+      if (event) event.stopPropagation();
+      if (rootStore.trips.length <= 1) {
+        alert('Нельзя удалить единственный рейс. Добавьте сначала новый.');
+        return;
+      }
+      const tr = rootStore.trips.find(t => t.id === tripId);
+      const title = tr?.trip?.title || tr?.title || 'этот рейс';
+      if (confirm(`Вы уверены, что хотите удалить "${title}" со всеми чеками?`)) {
+        rootStore.trips = rootStore.trips.filter(t => t.id !== tripId);
+        if (rootStore.activeTripId === tripId) {
+          rootStore.activeTripId = rootStore.trips[0].id;
+        }
+        syncActiveTripPointer();
+        saveState();
+        renderTripsList();
+        renderAll();
+      }
+    }
+
+    function renderTripsList() {
+      const container = document.getElementById('tripsListContainer');
+      container.innerHTML = '';
+
+      rootStore.trips.forEach(tr => {
+        const isActive = tr.id === rootStore.activeTripId;
+        const tripTitle = tr.trip?.title || tr.title || 'Без названия';
+        const tripStart = tr.trip?.startDate || tr.startDate || '—';
+        const expensesCount = tr.expenses?.length || 0;
+
+        let totalExpUsd = 0;
+        (tr.expenses || []).forEach(e => totalExpUsd += (Number(e.usdAmount) || 0));
+
+        const card = document.createElement('div');
+        card.onclick = () => selectTrip(tr.id);
+        card.className = `p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 ${
+          isActive 
+            ? 'bg-amber-50/70 border-amber-300 shadow-sm ring-1 ring-amber-300' 
+            : 'bg-[#faf9f6] border-[#d8d3c7] hover:border-slate-400'
+        }`;
+
+        card.innerHTML = `
+          <div class="min-w-0 flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg ${isActive ? 'bg-slate-800 text-white font-bold' : 'bg-[#eeebe3] text-slate-600'} flex items-center justify-center flex-shrink-0 text-xs">
+              ${isActive ? '<i data-lucide="check" class="w-4 h-4"></i>' : '<i data-lucide="truck" class="w-4 h-4"></i>'}
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-slate-900 text-xs sm:text-sm truncate">${tripTitle}</span>
+                ${isActive ? '<span class="text-[9px] bg-slate-800 text-white font-extrabold px-1.5 py-0.2 rounded">ВЫБРАН</span>' : ''}
+              </div>
+              <div class="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                <span>Старт: ${tripStart}</span>
+                <span>•</span>
+                <span>Чеков: ${expensesCount}</span>
+                <span>•</span>
+                <span class="text-slate-800 font-mono-num font-semibold">Итог: $${formatNumber(totalExpUsd, 2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <button onclick="deleteTrip('${tr.id}', event)" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition" title="Удалить рейс">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    function renderHeaderAndWallet() {
+      // Sync trip name display button
+      const currentTripName = appState?.trip?.title || appState?.title || 'Текущий рейс';
+      const currentTripDate = appState?.trip?.startDate || appState?.startDate || '';
+      const displayElem = document.getElementById('currentTripNameDisplay');
+      if (displayElem) {
+        displayElem.textContent = `${currentTripName} (${currentTripDate})`;
+      }
+
+      const headerCount = document.getElementById('headerTripsCountBadge');
+      if (headerCount) {
+        headerCount.textContent = rootStore.trips.length;
+      }
+
+      // Compute wallet for current active trip
+      const { balances, totalUsd } = computeWalletBalances();
+      document.getElementById('walletTotalUsd').textContent = '$' + formatNumber(totalUsd, 2);
+
+      const badgesContainer = document.getElementById('walletBadges');
+      badgesContainer.innerHTML = '';
+
+      const currencies = ['USD', 'RUB', 'KGS', 'UZS', 'TJS'];
+
+      currencies.forEach(cur => {
+        const val = balances[cur] || 0;
+        const isPositive = val > 0.001;
+        const isNegative = val < -0.001;
+
+        let badgeBg = 'bg-[#f4f2eb] border-[#dcd7cb] text-slate-700';
+        let valColor = 'text-slate-900';
+
+        if (isPositive) {
+          badgeBg = 'bg-emerald-50 border-emerald-300 text-emerald-800';
+          valColor = 'text-emerald-800 font-bold';
+        } else if (isNegative) {
+          badgeBg = 'bg-rose-50 border-rose-300 text-rose-800';
+          valColor = 'text-rose-700 font-extrabold';
+        }
+
+        const div = document.createElement('div');
+        div.className = `flex-shrink-0 px-2.5 py-1 rounded-lg border text-xs flex items-center gap-1.5 shadow-sm ${badgeBg}`;
+        div.innerHTML = `
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">${cur}</span>
+          <span class="font-mono-num font-bold ${valColor}">${formatNumber(val, cur === 'UZS' ? 0 : 2)}</span>
+        `;
+        badgesContainer.appendChild(div);
+      });
+    }
+
+    // Helper to compute effective exchange rates & wallet balances
+    function getEffectiveRate(cur) {
+      if (cur === 'USD') return 1.0;
+      return appState?.rates?.[cur] || DEFAULT_RATES[cur] || 1.0;
+    }
+
+    function computeWalletBalances() {
+      const balances = { USD: 0, RUB: 0, KGS: 0, UZS: 0, TJS: 0 };
+
+      // 1. Advances added to wallet
+      (appState.advances || []).forEach(adv => {
+        if (balances[adv.currency] !== undefined) {
+          balances[adv.currency] += (Number(adv.amount) || 0);
+        }
+      });
+
+      // 2. Exchanges effect
+      (appState.exchanges || []).forEach(ex => {
+        if (balances[ex.fromCur] !== undefined) {
+          balances[ex.fromCur] -= (Number(ex.fromAmt) || 0);
+        }
+        if (balances[ex.toCur] !== undefined) {
+          balances[ex.toCur] += (Number(ex.toAmt) || 0);
+        }
+      });
+
+      // 3. Expenses deduction
+      (appState.expenses || []).forEach(exp => {
+        if (balances[exp.currency] !== undefined) {
+          balances[exp.currency] -= (Number(exp.amount) || 0);
+        }
+      });
+
+      // Compute total in USD
+      let totalUsd = 0;
+      Object.keys(balances).forEach(cur => {
+        const amt = balances[cur];
+        const rate = getEffectiveRate(cur);
+        if (rate > 0) {
+          totalUsd += (amt / rate);
+        }
+      });
+
+      return { balances, totalUsd };
+    }
+
+    function formatNumber(num, decimals = 2) {
+      if (isNaN(num)) return '0.00';
+      return Number(num).toLocaleString('ru-RU', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-slate-800', 'text-white', 'font-bold', 'shadow-sm');
+        btn.classList.add('text-slate-500');
+      });
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+
+      const activeBtn = document.getElementById(`tabBtn-${tabName}`);
+      const activeContent = document.getElementById(`tabContent-${tabName}`);
+
+      if (activeBtn) {
+        activeBtn.classList.add('bg-slate-800', 'text-white', 'font-bold', 'shadow-sm');
+        activeBtn.classList.remove('text-slate-500');
+      }
+      if (activeContent) {
+        activeContent.classList.remove('hidden');
+      }
+
+      if (tabName === 'daily') renderDailySummary();
+      if (tabName === 'summary') renderFinancialSummary();
+      if (tabName === 'advances') renderAdvancesTab();
+      if (tabName === 'exchange') renderExchangesList();
+      if (tabName === 'expenses') renderExpensesList();
+      if (tabName === 'wallet') renderWalletTab();
+
+      lucide.createIcons();
+    }
+
+    function renderAll() {
+      renderHeaderAndWallet();
+      renderExpensesList();
+      renderExchangesList();
+      renderAdvancesTab();
+      renderWalletTab();
+      renderDailySummary();
+      renderFinancialSummary();
+      lucide.createIcons();
+    }
+
+    /* --- EXPENSES TAB HANDLERS --- */
+    function handleExpenseCurrencyChange() {
+      const cur = document.getElementById('expCurrency').value;
+      const rate = getEffectiveRate(cur);
+      document.getElementById('expRate').value = rate;
+      document.getElementById('rateHint').textContent = cur === 'USD' ? '1.0' : `~${formatNumber(rate, 2)}`;
+      calculateExpensePreview();
+    }
+
+    function calculateExpensePreview() {
+      const amount = cleanParseFloat(document.getElementById('expAmount').value, 0);
+      const rate = cleanParseFloat(document.getElementById('expRate').value, 1);
+      const usd = rate > 0 ? (amount / rate) : 0;
+      document.getElementById('expUsdPreview').textContent = '$' + formatNumber(usd, 2);
+    }
+
+    function handlePhotoSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 1000;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.65);
+          document.getElementById('photoThumb').src = currentPhotoBase64;
+          document.getElementById('photoThumbContainer').classList.remove('hidden');
+          document.getElementById('photoThumbContainer').classList.add('flex');
+          document.getElementById('photoButtonLabel').textContent = 'Заменить фото';
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeSelectedPhoto() {
+      currentPhotoBase64 = null;
+      document.getElementById('expPhotoInput').value = '';
+      document.getElementById('photoThumb').src = '';
+      document.getElementById('photoThumbContainer').classList.add('hidden');
+      document.getElementById('photoThumbContainer').classList.remove('flex');
+      document.getElementById('photoButtonLabel').textContent = 'Прикрепить чек';
+    }
+
+    function handleSaveExpense(event) {
+      event.preventDefault();
+      const date = document.getElementById('expDate').value;
+      const category = document.getElementById('expCategory').value;
+      const currency = document.getElementById('expCurrency').value;
+      const amount = cleanParseFloat(document.getElementById('expAmount').value, 0);
+      const rate = cleanParseFloat(document.getElementById('expRate').value, getEffectiveRate(currency));
+      const note = document.getElementById('expNote').value.trim();
+
+      if (amount <= 0) return;
+
+      const usdAmount = rate > 0 ? (amount / rate) : 0;
+
+      const newExpense = {
+        id: 'exp-' + Date.now(),
+        date,
+        category,
+        currency,
+        amount,
+        rate,
+        usdAmount: Math.round(usdAmount * 100) / 100,
+        note,
+        photo: currentPhotoBase64
+      };
+
+      appState.expenses.unshift(newExpense);
+      saveState();
+
+      document.getElementById('expAmount').value = '';
+      document.getElementById('expNote').value = '';
+      removeSelectedPhoto();
+      calculateExpensePreview();
+
+      renderAll();
+    }
+
+    function deleteExpense(id) {
+      if (confirm('Удалить этот чек? Сумма сразу вернется в кассу.')) {
+        appState.expenses = appState.expenses.filter(item => item.id !== id);
+        saveState();
+        renderAll();
+      }
+    }
+
+    function openEditExpenseModal(id) {
+      const exp = appState.expenses.find(item => item.id === id);
+      if (!exp) return;
+
+      document.getElementById('editExpId').value = exp.id;
+      document.getElementById('editExpDate').value = exp.date;
+      document.getElementById('editExpCategory').value = exp.category;
+      document.getElementById('editExpCurrency').value = exp.currency;
+      document.getElementById('editExpAmount').value = exp.amount;
+      document.getElementById('editExpRate').value = exp.rate;
+      document.getElementById('editExpNote').value = exp.note || '';
+
+      calculateEditExpensePreview();
+      document.getElementById('editExpenseModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeEditExpenseModal() {
+      document.getElementById('editExpenseModal').classList.add('hidden');
+    }
+
+    function handleEditCurrencyChange() {
+      const cur = document.getElementById('editExpCurrency').value;
+      const rate = getEffectiveRate(cur);
+      document.getElementById('editExpRate').value = rate;
+      calculateEditExpensePreview();
+    }
+
+    function calculateEditExpensePreview() {
+      const amount = cleanParseFloat(document.getElementById('editExpAmount').value, 0);
+      const rate = cleanParseFloat(document.getElementById('editExpRate').value, 1);
+      const usd = rate > 0 ? (amount / rate) : 0;
+      document.getElementById('editExpUsdPreview').textContent = '$' + formatNumber(usd, 2);
+    }
+
+    function handleUpdateExpense(event) {
+      event.preventDefault();
+      const id = document.getElementById('editExpId').value;
+      const exp = appState.expenses.find(item => item.id === id);
+      if (!exp) return;
+
+      const date = document.getElementById('editExpDate').value;
+      const category = document.getElementById('editExpCategory').value;
+      const currency = document.getElementById('editExpCurrency').value;
+      const amount = cleanParseFloat(document.getElementById('editExpAmount').value, 0);
+      const rate = cleanParseFloat(document.getElementById('editExpRate').value, getEffectiveRate(currency));
+      const note = document.getElementById('editExpNote').value.trim();
+
+      if (amount <= 0) return;
+
+      const usdAmount = rate > 0 ? (amount / rate) : 0;
+
+      exp.date = date;
+      exp.category = category;
+      exp.currency = currency;
+      exp.amount = amount;
+      exp.rate = rate;
+      exp.usdAmount = Math.round(usdAmount * 100) / 100;
+      exp.note = note;
+
+      saveState();
+      closeEditExpenseModal();
+      renderAll();
+    }
+
+    function renderExpensesList() {
+      const container = document.getElementById('expensesListContainer');
+      container.innerHTML = '';
+
+      let totalUsd = 0;
+      (appState.expenses || []).forEach(e => totalUsd += cleanParseFloat(e.usdAmount, 0));
+
+      document.getElementById('expensesCountBadge').textContent = (appState.expenses || []).length;
+      document.getElementById('expensesTotalSumBadge').textContent = '$' + formatNumber(totalUsd, 2);
+
+      if (!appState.expenses || appState.expenses.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center text-slate-400 text-xs">
+            В этом рейсе чеков ещё нет. Заполните форму выше и нажмите «Записать расход».
+          </div>
+        `;
+        return;
+      }
+
+      appState.expenses.forEach(exp => {
+        const item = document.createElement('div');
+        item.className = 'p-3 hover:bg-[#faf9f6] transition flex items-center justify-between gap-2 text-xs';
+
+        let photoButtonHtml = '';
+        if (exp.photo) {
+          photoButtonHtml = `
+            <button onclick="viewFullPhoto('${exp.photo}', '${exp.category} (${exp.date})')" class="w-8 h-8 rounded-lg overflow-hidden border border-[#d8d3c7] flex-shrink-0" title="Посмотреть фото">
+              <img src="${exp.photo}" class="w-full h-full object-cover">
+            </button>
+          `;
+        }
+
+        item.innerHTML = `
+          <div class="flex items-center gap-2.5 min-w-0">
+            ${photoButtonHtml}
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-slate-800">${exp.category}</span>
+                <span class="text-[10px] bg-[#f1efe9] text-slate-600 px-1.5 py-0.5 rounded font-mono-num border border-[#e2ded5]">${exp.date}</span>
+              </div>
+              <div class="text-[11px] text-slate-500 truncate mt-0.5">
+                ${exp.note || 'Без примечания'}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+            <div class="text-right">
+              <span class="font-mono-num font-bold text-slate-900 text-xs sm:text-sm block">
+                ${formatNumber(exp.amount, exp.currency === 'UZS' ? 0 : 2)} <span class="text-slate-600 font-bold">${exp.currency}</span>
+              </span>
+              <span class="text-[10px] text-slate-500 font-mono-num">
+                ≈ $${formatNumber(exp.usdAmount, 2)}
+              </span>
+            </div>
+
+            <button onclick="openEditExpenseModal('${exp.id}')" class="text-slate-400 hover:text-slate-800 p-1.5 rounded-lg hover:bg-[#f1efe9] transition" title="Редактировать">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
+            </button>
+            <button onclick="deleteExpense('${exp.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition" title="Удалить">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    /* --- EXCHANGE TAB HANDLERS --- */
+    function calcExchangeRateLive() {
+      const fromCur = document.getElementById('exchFromCur').value;
+      const toCur = document.getElementById('exchToCur').value;
+      const fromAmt = cleanParseFloat(document.getElementById('exchFromAmt').value, 0);
+      const toAmt = cleanParseFloat(document.getElementById('exchToAmt').value, 0);
+
+      const rateElem = document.getElementById('exchEffectiveRate');
+      if (fromAmt > 0 && toAmt > 0) {
+        const rate = toAmt / fromAmt;
+        rateElem.textContent = `1 ${fromCur} = ${formatNumber(rate, 2)} ${toCur}`;
+      } else {
+        rateElem.textContent = '—';
+      }
+    }
+
+    function handleSaveExchange(event) {
+      event.preventDefault();
+      const date = document.getElementById('exchDate').value;
+      const fromCur = document.getElementById('exchFromCur').value;
+      const fromAmt = cleanParseFloat(document.getElementById('exchFromAmt').value, 0);
+      const toCur = document.getElementById('exchToCur').value;
+      const toAmt = cleanParseFloat(document.getElementById('exchToAmt').value, 0);
+      const note = document.getElementById('exchNote').value.trim();
+
+      if (fromCur === toCur) {
+        alert('Выберите разные валюты для обмена.');
+        return;
+      }
+      if (fromAmt <= 0 || toAmt <= 0) return;
+
+      const rate = toAmt / fromAmt;
+
+      const newExch = {
+        id: 'exch-' + Date.now(),
+        date,
+        fromCur,
+        fromAmt,
+        toCur,
+        toAmt,
+        rate,
+        note
+      };
+
+      appState.exchanges.unshift(newExch);
+      saveState();
+
+      document.getElementById('exchFromAmt').value = '';
+      document.getElementById('exchToAmt').value = '';
+      document.getElementById('exchNote').value = '';
+      calcExchangeRateLive();
+
+      renderAll();
+    }
+
+    function deleteExchange(id) {
+      if (confirm('Отменить эту операцию обмена? Баланс кошелька вернется.')) {
+        appState.exchanges = appState.exchanges.filter(item => item.id !== id);
+        saveState();
+        renderAll();
+      }
+    }
+
+    function openEditExchangeModal(id) {
+      const exch = appState.exchanges.find(item => item.id === id);
+      if (!exch) return;
+
+      document.getElementById('editExchId').value = exch.id;
+      document.getElementById('editExchDate').value = exch.date;
+      document.getElementById('editExchFromCur').value = exch.fromCur;
+      document.getElementById('editExchFromAmt').value = exch.fromAmt;
+      document.getElementById('editExchToCur').value = exch.toCur;
+      document.getElementById('editExchToAmt').value = exch.toAmt;
+      document.getElementById('editExchNote').value = exch.note || '';
+
+      calcEditExchangeRateLive();
+      document.getElementById('editExchangeModal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeEditExchangeModal() {
+      document.getElementById('editExchangeModal').classList.add('hidden');
+    }
+
+    function calcEditExchangeRateLive() {
+      const fromCur = document.getElementById('editExchFromCur').value;
+      const toCur = document.getElementById('editExchToCur').value;
+      const fromAmt = cleanParseFloat(document.getElementById('editExchFromAmt').value, 0);
+      const toAmt = cleanParseFloat(document.getElementById('editExchToAmt').value, 0);
+
+      const rateElem = document.getElementById('editExchEffectiveRate');
+      if (fromAmt > 0 && toAmt > 0) {
+        const rate = toAmt / fromAmt;
+        rateElem.textContent = `1 ${fromCur} = ${formatNumber(rate, 2)} ${toCur}`;
+      } else {
+        rateElem.textContent = '—';
+      }
+    }
+
+    function handleUpdateExchange(event) {
+      event.preventDefault();
+      const id = document.getElementById('editExchId').value;
+      const exch = appState.exchanges.find(item => item.id === id);
+      if (!exch) return;
+
+      const date = document.getElementById('editExchDate').value;
+      const fromCur = document.getElementById('editExchFromCur').value;
+      const fromAmt = cleanParseFloat(document.getElementById('editExchFromAmt').value, 0);
+      const toCur = document.getElementById('editExchToCur').value;
+      const toAmt = cleanParseFloat(document.getElementById('editExchToAmt').value, 0);
+      const note = document.getElementById('editExchNote').value.trim();
+
+      if (fromCur === toCur) {
+        alert('Выберите разные валюты для обмена.');
+        return;
+      }
+      if (fromAmt <= 0 || toAmt <= 0) return;
+
+      const rate = toAmt / fromAmt;
+
+      exch.date = date;
+      exch.fromCur = fromCur;
+      exch.fromAmt = fromAmt;
+      exch.toCur = toCur;
+      exch.toAmt = toAmt;
+      exch.rate = rate;
+      exch.note = note;
+
+      saveState();
+      closeEditExchangeModal();
+      renderAll();
+    }
+
+    function renderExchangesList() {
+      const container = document.getElementById('exchangeListContainer');
+      container.innerHTML = '';
+      document.getElementById('exchangesCountBadge').textContent = appState.exchanges.length;
+
+      if (appState.exchanges.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 text-center text-slate-400 text-xs">
+            Операций обмена ещё не было.
+          </div>
+        `;
+        return;
+      }
+
+      appState.exchanges.forEach(ex => {
+        const row = document.createElement('div');
+        row.className = 'p-3 hover:bg-[#faf9f6] transition flex items-center justify-between gap-2 text-xs';
+        row.innerHTML = `
+          <div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="font-mono-num font-bold text-rose-600">-${formatNumber(ex.fromAmt, 2)} ${ex.fromCur}</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span class="font-mono-num font-bold text-emerald-700">+${formatNumber(ex.toAmt, 2)} ${ex.toCur}</span>
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
+              <span>${ex.date}</span>
+              <span>•</span>
+              <span class="text-slate-700 font-mono-num">Курс: ${formatNumber(ex.rate, 2)}</span>
+              ${ex.note ? `<span>• ${ex.note}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1">
+            <button onclick="openEditExchangeModal('${ex.id}')" class="text-slate-400 hover:text-slate-800 p-1.5 rounded-lg hover:bg-[#f1efe9] transition" title="Редактировать">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
+            </button>
+            <button onclick="deleteExchange('${ex.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition" title="Удалить">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    /* --- ADVANCES & FREIGHT TAB --- */
+    function updateFreightSetup() {
+      const cur = document.getElementById('freightCurrency').value || 'USD';
+      const amt = cleanParseFloat(document.getElementById('freightAgreedAmount').value, 0);
+
+      appState.freightCurrency = cur;
+      appState.freightAgreedAmount = amt;
+      appState.trip.freightCurrency = cur;
+      appState.trip.freightAgreedAmount = amt;
+      saveState();
+
+      renderAdvancesTab();
+      renderFinancialSummary();
+      renderHeaderAndWallet();
+      renderWalletTab();
+    }
+
+    function calcAdvancePreview() {
+      const cur = document.getElementById('advCurrency').value;
+      const amt = cleanParseFloat(document.getElementById('advAmount').value, 0);
+      const rate = getEffectiveRate(cur);
+      const usd = rate > 0 ? (amt / rate) : 0;
+      document.getElementById('advUsdPreview').textContent = '$' + formatNumber(usd, 2);
+    }
+
+    function handleSaveAdvance(event) {
+      event.preventDefault();
+      const date = document.getElementById('advDate').value;
+      const type = document.getElementById('advType').value;
+      const currency = document.getElementById('advCurrency').value;
+      const amount = cleanParseFloat(document.getElementById('advAmount').value, 0);
+      const rate = getEffectiveRate(currency);
+
+      if (amount <= 0) return;
+
+      const usdAmount = rate > 0 ? (amount / rate) : 0;
+
+      const newAdv = {
+        id: 'adv-' + Date.now(),
+        date,
+        type,
+        currency,
+        amount,
+        rate,
+        usdAmount: Math.round(usdAmount * 100) / 100
+      };
+
+      appState.advances.unshift(newAdv);
+      saveState();
+
+      document.getElementById('advAmount').value = '';
+      calcAdvancePreview();
+      renderAll();
+    }
+
+    function deleteAdvance(id) {
+      if (confirm('Удалить этот платёж? Сумма спишется из баланса кассы.')) {
+        appState.advances = appState.advances.filter(item => item.id !== id);
+        saveState();
+        renderAll();
+      }
+    }
+
+    function renderAdvancesTab() {
+      // Inputs sync
+      const agreedCur = appState.freightCurrency || appState.trip?.freightCurrency || 'USD';
+      const agreedAmt = cleanParseFloat(
+        appState.freightAgreedAmount !== undefined 
+          ? appState.freightAgreedAmount 
+          : appState.trip?.freightAgreedAmount, 
+        0
+      );
+
+      const inputCur = document.getElementById('freightCurrency');
+      const inputAmt = document.getElementById('freightAgreedAmount');
+      if (inputCur) inputCur.value = agreedCur;
+      if (inputAmt) inputAmt.value = agreedAmt > 0 ? agreedAmt : (inputAmt.value || '');
+
+      const agreedRate = getEffectiveRate(agreedCur);
+      const agreedUsd = agreedRate > 0 ? (agreedAmt / agreedRate) : 0;
+
+      document.getElementById('freightAgreedUsd').textContent = '$' + formatNumber(agreedUsd, 2);
+      document.getElementById('kpiFreightTotal').textContent = '$' + formatNumber(agreedUsd, 2);
+
+      // Total advances in USD
+      let totalReceivedUsd = 0;
+      (appState.advances || []).forEach(adv => totalReceivedUsd += (cleanParseFloat(adv.usdAmount, 0)));
+      document.getElementById('kpiFreightReceived').textContent = '$' + formatNumber(totalReceivedUsd, 2);
+
+      // Remaining debt
+      const debtUsd = Math.max(0, agreedUsd - totalReceivedUsd);
+      document.getElementById('kpiFreightDebtUsd').textContent = '$' + formatNumber(debtUsd, 2);
+
+      const statusBadge = document.getElementById('kpiFreightDebtStatus');
+      if (debtUsd <= 0.01 && agreedUsd > 0) {
+        statusBadge.textContent = 'Оплачено 100%';
+        statusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-800';
+      } else {
+        statusBadge.textContent = 'Остался долг';
+        statusBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded border border-rose-300 bg-rose-50 text-rose-700';
+      }
+
+      // Debt in local currencies
+      const debtListContainer = document.getElementById('debtInCurrenciesList');
+      debtListContainer.innerHTML = '';
+      ['RUB', 'KGS', 'UZS', 'TJS'].forEach(cur => {
+        const rate = getEffectiveRate(cur);
+        const curAmt = debtUsd * rate;
+        const box = document.createElement('div');
+        box.className = 'bg-[#faf9f6] p-2 rounded-lg border border-[#d8d3c7]';
+        box.innerHTML = `
+          <span class="text-[10px] text-slate-500 block uppercase font-bold">${cur}</span>
+          <span class="font-mono-num font-bold text-slate-800">${formatNumber(curAmt, cur === 'UZS' ? 0 : 2)}</span>
+        `;
+        debtListContainer.appendChild(box);
+      });
+
+      // Advances list
+      const container = document.getElementById('advancesListContainer');
+      container.innerHTML = '';
+      document.getElementById('advancesCountBadge').textContent = (appState.advances || []).length;
+
+      if (!appState.advances || appState.advances.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 text-center text-slate-400 text-xs">Поступлений пока не внесено.</div>
+        `;
+        return;
+      }
+
+      appState.advances.forEach(adv => {
+        const row = document.createElement('div');
+        row.className = 'p-3 hover:bg-[#faf9f6] transition flex items-center justify-between gap-2 text-xs';
+        row.innerHTML = `
+          <div>
+            <div class="font-bold text-slate-800">${adv.type}</div>
+            <div class="text-[11px] text-slate-500 font-mono-num">${adv.date}</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              <span class="font-mono-num font-bold text-emerald-700 text-sm">
+                +${formatNumber(adv.amount, 2)} ${adv.currency}
+              </span>
+              <span class="block text-[10px] text-slate-500 font-mono-num">≈ $${formatNumber(adv.usdAmount, 2)}</span>
+            </div>
+            <button onclick="deleteAdvance('${adv.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    /* --- DAILY BREAKDOWN TAB --- */
+    function renderDailySummary() {
+      const container = document.getElementById('dailyContainer');
+      container.innerHTML = '';
+
+      const groupedByDate = {};
+      let totalUsdAll = 0;
+
+      (appState.expenses || []).forEach(exp => {
+        const d = exp.date || 'Без даты';
+        if (!groupedByDate[d]) {
+          groupedByDate[d] = {
+            totalUsd: 0,
+            currencies: { RUB: 0, KGS: 0, UZS: 0, TJS: 0, USD: 0 },
+            items: []
+          };
+        }
+        const u = cleanParseFloat(exp.usdAmount, 0);
+        groupedByDate[d].totalUsd += u;
+        groupedByDate[d].currencies[exp.currency] = (groupedByDate[d].currencies[exp.currency] || 0) + cleanParseFloat(exp.amount, 0);
+        groupedByDate[d].items.push(exp);
+        totalUsdAll += u;
+      });
+
+      document.getElementById('dailyTotalBadge').textContent = '$' + formatNumber(totalUsdAll, 2);
+
+      const dates = Object.keys(groupedByDate).sort().reverse();
+
+      if (dates.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center text-slate-400 text-xs">
+            Нет расходов для группировки по дням.
+          </div>
+        `;
+        return;
+      }
+
+      dates.forEach(d => {
+        const day = groupedByDate[d];
+        const card = document.createElement('div');
+        card.className = 'bg-[#faf9f6] border border-[#d8d3c7] rounded-xl p-3 space-y-2';
+
+        let curBadgesHtml = '';
+        Object.keys(day.currencies).forEach(c => {
+          const amt = day.currencies[c];
+          if (amt > 0) {
+            curBadgesHtml += `
+              <span class="inline-block bg-white border border-[#d8d3c7] px-2 py-0.5 rounded text-[11px] font-mono-num text-slate-700">
+                ${formatNumber(amt, c === 'UZS' ? 0 : 2)} <strong class="text-slate-900">${c}</strong>
+              </span>
+            `;
+          }
+        });
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between border-b border-[#eeebe3] pb-1.5">
+            <div class="flex items-center gap-2">
+              <i data-lucide="calendar" class="w-4 h-4 text-amber-700"></i>
+              <span class="font-bold text-slate-800 text-xs sm:text-sm font-mono-num">${d}</span>
+              <span class="text-[10px] text-slate-500">(${day.items.length} чека)</span>
+            </div>
+            <span class="font-bold font-mono-num text-emerald-700 text-xs sm:text-sm">
+              Итог дня: $${formatNumber(day.totalUsd, 2)}
+            </span>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 pt-0.5">
+            ${curBadgesHtml || '<span class="text-slate-400 text-xs">Нет трат</span>'}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /* --- WALLET SEPARATE TAB --- */
+    function renderWalletTab() {
+      const { balances, totalUsd } = computeWalletBalances();
+
+      // Detailed cashflow calculation per currency
+      const inflow = { USD: 0, RUB: 0, KGS: 0, UZS: 0, TJS: 0 };
+      const outflow = { USD: 0, RUB: 0, KGS: 0, UZS: 0, TJS: 0 };
+
+      (appState.advances || []).forEach(adv => {
+        if (inflow[adv.currency] !== undefined) {
+          inflow[adv.currency] += (Number(adv.amount) || 0);
+        }
+      });
+
+      (appState.exchanges || []).forEach(ex => {
+        if (outflow[ex.fromCur] !== undefined) {
+          outflow[ex.fromCur] += (Number(ex.fromAmt) || 0);
+        }
+        if (inflow[ex.toCur] !== undefined) {
+          inflow[ex.toCur] += (Number(ex.toAmt) || 0);
+        }
+      });
+
+      (appState.expenses || []).forEach(exp => {
+        if (outflow[exp.currency] !== undefined) {
+          outflow[exp.currency] += (Number(exp.amount) || 0);
+        }
+      });
+
+      // Render cards
+      const cardsContainer = document.getElementById('walletDetailCards');
+      if (cardsContainer) {
+        cardsContainer.innerHTML = '';
+        const currencies = [
+          { code: 'USD', name: 'Доллар США' },
+          { code: 'RUB', name: 'Российский рубль' },
+          { code: 'KGS', name: 'Кыргызский сом' },
+          { code: 'UZS', name: 'Узбекский сум' },
+          { code: 'TJS', name: 'Таджикский сомони' }
+        ];
+
+        currencies.forEach(cur => {
+          const val = balances[cur.code] || 0;
+          const rate = getEffectiveRate(cur.code);
+          const valUsd = rate > 0 ? (val / rate) : 0;
+          const isPositive = val > 0.001;
+          const isNegative = val < -0.001;
+
+          let badgeBorder = 'border-[#dcd7cb]';
+          let textColor = 'text-slate-900';
+          if (isPositive) {
+            badgeBorder = 'border-emerald-300 ring-1 ring-emerald-200';
+            textColor = 'text-emerald-800';
+          } else if (isNegative) {
+            badgeBorder = 'border-rose-300 ring-1 ring-rose-200';
+            textColor = 'text-rose-700';
+          }
+
+          const card = document.createElement('div');
+          card.className = `bg-white p-3.5 rounded-xl border ${badgeBorder} shadow-sm flex items-center justify-between gap-3`;
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-slate-800 text-sm">${cur.code}</span>
+                <span class="text-[11px] text-slate-500">(${cur.name})</span>
+              </div>
+              <div class="text-[11px] text-slate-500 mt-0.5">
+                Курс к $: <span class="font-mono-num font-medium text-slate-700">${formatNumber(rate, 2)}</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="font-mono-num font-extrabold text-base sm:text-lg block ${textColor}">
+                ${formatNumber(val, cur.code === 'UZS' ? 0 : 2)} <span class="text-xs text-slate-600">${CURRENCY_SYMBOLS[cur.code]}</span>
+              </span>
+              <span class="text-[10px] text-slate-500 font-mono-num">
+                ≈ $${formatNumber(valUsd, 2)}
+              </span>
+            </div>
+          `;
+          cardsContainer.appendChild(card);
+        });
+      }
+
+      // Render table
+      const tbody = document.getElementById('walletCashflowRows');
+      if (tbody) {
+        tbody.innerHTML = '';
+        ['USD', 'RUB', 'KGS', 'UZS', 'TJS'].forEach(cur => {
+          const inVal = inflow[cur] || 0;
+          const outVal = outflow[cur] || 0;
+          const bal = balances[cur] || 0;
+          const rate = getEffectiveRate(cur);
+          const balUsd = rate > 0 ? (bal / rate) : 0;
+
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-[#eeebe3]';
+          tr.innerHTML = `
+            <td class="py-2 font-bold text-slate-800">${cur}</td>
+            <td class="py-2 text-emerald-700 font-semibold">+${formatNumber(inVal, cur === 'UZS' ? 0 : 2)}</td>
+            <td class="py-2 text-rose-600 font-semibold">-${formatNumber(outVal, cur === 'UZS' ? 0 : 2)}</td>
+            <td class="py-2 font-bold ${bal >= 0 ? 'text-slate-900' : 'text-rose-700'}">${formatNumber(bal, cur === 'UZS' ? 0 : 2)}</td>
+            <td class="py-2 text-right font-bold text-slate-900">$${formatNumber(balUsd, 2)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    /* --- SUMMARY TAB --- */
+    function renderFinancialSummary() {
+      // 1. Freight agreed
+      const agreedCur = appState.trip?.freightCurrency || appState.freightCurrency || 'USD';
+      const agreedAmt = cleanParseFloat(appState.trip?.freightAgreedAmount !== undefined ? appState.trip.freightAgreedAmount : appState.freightAgreedAmount, 0);
+      const agreedRate = getEffectiveRate(agreedCur);
+      const agreedUsd = agreedRate > 0 ? (agreedAmt / agreedRate) : 0;
+
+      // 2. Total spent
+      let totalSpentUsd = 0;
+      const spentByCurrency = { RUB: 0, KGS: 0, UZS: 0, TJS: 0, USD: 0 };
+      const categoryMap = {};
+
+      (appState.expenses || []).forEach(exp => {
+        const u = cleanParseFloat(exp.usdAmount, 0);
+        totalSpentUsd += u;
+        spentByCurrency[exp.currency] = (spentByCurrency[exp.currency] || 0) + cleanParseFloat(exp.amount, 0);
+        categoryMap[exp.category] = (categoryMap[exp.category] || 0) + u;
+      });
+
+      document.getElementById('sumTotalAgreed').textContent = '$' + formatNumber(agreedUsd, 2);
+      document.getElementById('sumTotalSpent').textContent = '$' + formatNumber(totalSpentUsd, 2);
+
+      // Currency rows
+      const tbody = document.getElementById('summaryCurrencyRows');
+      tbody.innerHTML = '';
+      Object.keys(spentByCurrency).forEach(cur => {
+        const amt = spentByCurrency[cur];
+        const rate = getEffectiveRate(cur);
+        const curUsd = rate > 0 ? (amt / rate) : 0;
+
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-[#eeebe3]';
+        tr.innerHTML = `
+          <td class="py-2 font-bold text-slate-800">${cur}</td>
+          <td class="py-2 text-slate-700">${formatNumber(amt, cur === 'UZS' ? 0 : 2)}</td>
+          <td class="py-2 text-slate-500">${formatNumber(rate, 2)}</td>
+          <td class="py-2 text-right font-bold text-slate-900">$${formatNumber(curUsd, 2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Category breakdown
+      const catContainer = document.getElementById('categoryBreakdownList');
+      catContainer.innerHTML = '';
+      const sortedCats = Object.entries(categoryMap).sort((a, b) => b[1] - a[1]);
+
+      sortedCats.forEach(([cat, val]) => {
+        const percent = totalSpentUsd > 0 ? Math.round((val / totalSpentUsd) * 100) : 0;
+        const div = document.createElement('div');
+        div.className = 'text-xs';
+        div.innerHTML = `
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-slate-700 font-medium">${cat}</span>
+            <span class="font-mono-num font-bold text-slate-900">$${formatNumber(val, 2)} <span class="text-slate-500 text-[10px]">(${percent}%)</span></span>
+          </div>
+          <div class="w-full h-1.5 bg-[#eeebe3] rounded-full overflow-hidden">
+            <div class="h-full bg-slate-700 rounded-full" style="width: ${percent}%"></div>
+          </div>
+        `;
+        catContainer.appendChild(div);
+      });
+
+      if (sortedCats.length === 0) {
+        catContainer.innerHTML = '<div class="text-slate-400 text-xs">Нет данных по категориям.</div>';
+      }
+    }
+
+    /* ==========================================================================
+       6. MODAL HANDLERS & SETTINGS
+       ========================================================================== */
+    function openRatesModal() {
+      document.getElementById('cfgRateRUB').value = appState.rates.RUB || DEFAULT_RATES.RUB;
+      document.getElementById('cfgRateKGS').value = appState.rates.KGS || DEFAULT_RATES.KGS;
+      document.getElementById('cfgRateUZS').value = appState.rates.UZS || DEFAULT_RATES.UZS;
+      document.getElementById('cfgRateTJS').value = appState.rates.TJS || DEFAULT_RATES.TJS;
+      document.getElementById('ratesModal').classList.remove('hidden');
+    }
+
+    function closeRatesModal() {
+      document.getElementById('ratesModal').classList.add('hidden');
+    }
+
+    function saveRatesFromModal() {
+      appState.rates.RUB = parseFloat(document.getElementById('cfgRateRUB').value) || DEFAULT_RATES.RUB;
+      appState.rates.KGS = parseFloat(document.getElementById('cfgRateKGS').value) || DEFAULT_RATES.KGS;
+      appState.rates.UZS = parseFloat(document.getElementById('cfgRateUZS').value) || DEFAULT_RATES.UZS;
+      appState.rates.TJS = parseFloat(document.getElementById('cfgRateTJS').value) || DEFAULT_RATES.TJS;
+      saveState();
+      closeRatesModal();
+      handleExpenseCurrencyChange();
+      renderAll();
+    }
+
+    function openTripSettingsModal() {
+      document.getElementById('cfgTripTitle').value = appState.trip.title || '';
+      document.getElementById('cfgTripStartDate').value = appState.trip.startDate || '';
+      document.getElementById('tripSettingsModal').classList.remove('hidden');
+    }
+
+    function closeTripSettingsModal() {
+      document.getElementById('tripSettingsModal').classList.add('hidden');
+    }
+
+    function saveTripMetaFromModal() {
+      appState.trip.title = document.getElementById('cfgTripTitle').value.trim();
+      appState.trip.startDate = document.getElementById('cfgTripStartDate').value;
+      saveState();
+      closeTripSettingsModal();
+      renderAll();
+    }
+
+    function viewFullPhoto(src, caption) {
+      document.getElementById('photoViewerImg').src = src;
+      document.getElementById('photoViewerTitle').textContent = caption || 'Чек';
+      document.getElementById('photoViewerModal').classList.remove('hidden');
+    }
+
+    function closePhotoViewer() {
+      document.getElementById('photoViewerModal').classList.add('hidden');
+    }
+
+    /* ==========================================================================
+       7. BACKUP, EXCEL (CSV) EXPORT & RESET
+       ========================================================================== */
+    function exportToJsonBackup() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(rootStore, null, 2));
+      const dlAnchor = document.createElement('a');
+      dlAnchor.setAttribute("href", dataStr);
+      dlAnchor.setAttribute("download", `uchot_reysa_${appState.trip.startDate || 'backup'}.json`);
+      document.body.appendChild(dlAnchor);
+      dlAnchor.click();
+      dlAnchor.remove();
+    }
+
+    function importFromJsonFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (imported && (imported.trips || imported.expenses)) {
+            if (imported.trips) {
+              rootStore = imported;
+            } else {
+              // single trip imported
+              rootStore = {
+                activeTripId: 'trip-' + Date.now(),
+                trips: [imported]
+              };
+            }
+            syncActiveTripPointer();
+            saveState();
+            closeTripSettingsModal();
+            renderAll();
+            alert('Данные рейсов успешно восстановлены!');
+          } else {
+            alert('Неверный формат файла бэкапа.');
+          }
+        } catch (err) {
+          alert('Ошибка чтения JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportToCsv() {
+      // Export expenses table to CSV format compatible with Excel
+      let csv = "\uFEFF"; // UTF-8 BOM for Cyrillic support in Excel
+      csv += "№;Дата;Категория;Валюта;Сумма;Курс к USD;Сумма в USD;Заметка / Место\n";
+
+      appState.expenses.forEach((item, idx) => {
+        const row = [
+          idx + 1,
+          `"${item.date}"`,
+          `"${item.category}"`,
+          `"${item.currency}"`,
+          item.amount.toString().replace('.', ','),
+          item.rate.toString().replace('.', ','),
+          item.usdAmount.toString().replace('.', ','),
+          `"${(item.note || '').replace(/"/g, '""')}"`
+        ];
+        csv += row.join(";") + "\n";
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `rashody_dalnoboy_${appState.trip.startDate || 'export'}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+
+    function confirmResetAllData() {
+      if (confirm('ВНИМАНИЕ! Это действие удалит все текущие чеки, обмены и авансы для начала нового рейса. Вы уверены?')) {
+        const freshState = JSON.parse(JSON.stringify(INITIAL_STATE));
+        freshState.expenses = [];
+        freshState.exchanges = [];
+        freshState.advances = [];
+        freshState.trip.startDate = new Date().toISOString().split('T')[0];
+        appState = freshState;
+        saveState();
+        closeTripSettingsModal();
+        renderAll();
+      }
+    }
+  </script>
+</body>
+</html>
